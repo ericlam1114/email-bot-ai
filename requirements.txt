@@ -5,4 +5,5 @@ msal
 msgraph-sdk
 apscheduler
 python-dotenv
-Flask 
+Flask
+openai>=1.0.0 

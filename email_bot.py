@@ -3,6 +3,8 @@ import sys
 import time
 import datetime
 import random
+import re
+import openai
 from typing import List, Dict, Any
 from dotenv import load_dotenv
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -25,8 +27,14 @@ class EmailBot:
         # Email settings
         self.daily_limit = int(os.environ.get('DAILY_EMAIL_LIMIT', 10))
         self.interval_minutes = int(os.environ.get('EMAIL_INTERVAL_MINUTES', 2))
-        self.email_subject = os.environ.get('EMAIL_SUBJECT', 'Reaching out regarding AI solutions')
         
+        # OpenAI API Key
+        self.openai_api_key = os.environ.get('OPENAI_API_KEY')
+        if not self.openai_api_key:
+            print("Warning: OPENAI_API_KEY not found in .env.local. ChatGPT integration will not work.")
+        else:
+            openai.api_key = self.openai_api_key
+
         # Status column in Google Sheet
         self.status_column = os.environ.get('STATUS_COLUMN', 'Status')
         self.status_column_index = None
@@ -62,6 +70,43 @@ class EmailBot:
         """Reset the daily email counter"""
         self.emails_sent_today = 0
         print(f"Daily email counter reset to 0 at {datetime.datetime.now()}")
+    
+    def _get_chatgpt_suggestion(self, sector: str) -> str:
+        if not self.openai_api_key or not sector:
+            print("Skipping ChatGPT suggestion: OpenAI API key not configured or sector is missing.")
+            return "" 
+
+        prompt = f"You're writing a very short, casual follow-up sentence for an email. The recipient is in the {sector} industry. " \
+                 f"After the main offer ('...we help identify and implement tailor-made solutions.'), add one brief, practical idea for a small AI automation they might find helpful. " \
+                 f"Use a friendly, approachable tone. " \
+                 f"Focus on a common, slightly tedious administrative or back-office task specific to the {sector} field that isn't a core strategic function and could be easily automated with a small AI tool to save a bit of time or reduce minor daily frustrations. " \
+                 f"The idea should not imply replacing staff or major operational overhauls. Keep it super short and simple. " \
+                 f"Do not use quotation marks. " \
+                 f"For example, for a 'Law Firm' sector, a good suggestion might be: 'Just thinking, AI could probably help with organizing discovery documents or even drafting routine client updates.' " \
+                 f"Now, generate a similar type of casual, practical, single sentence for the {sector} industry."
+        
+        try:
+            print(f"Requesting ChatGPT suggestion for sector: {sector}...")
+            response = openai.chat.completions.create(
+                model="gpt-4.1", 
+                messages=[
+                    {"role": "system", "content": "You are an assistant that generates concise and relevant AI automation ideas for email outreach."},
+                    {"role": "user", "content": prompt}
+                ],
+                max_tokens=70, 
+                temperature=0.75 
+            )
+            suggestion = response.choices[0].message.content.strip()
+            # Ensure it's a single sentence and doesn't have unwanted prefixes/suffixes if any.
+            suggestion = suggestion.split('\n')[0] # Take first line if multiple
+            if suggestion.startswith('"') and suggestion.endswith('"'):
+                suggestion = suggestion[1:-1]
+
+            print(f"ChatGPT suggestion for {sector}: {suggestion}")
+            return suggestion
+        except Exception as e:
+            print(f"Error getting ChatGPT suggestion for {sector}: {str(e)}")
+            return ""
     
     def _can_send_email(self):
         """Check if we can send an email (limits and timing)"""
@@ -143,14 +188,49 @@ class EmailBot:
                 print(f"No email address for recipient in row {recipient['_row_index']}")
                 return False
             
-            # Fill the email template with recipient data
-            email_content = self.template_handler.fill_template(recipient)
+            # Ensure 'sector' key exists, even if empty, for template filling
+            recipient_sector = recipient.get('Sector', '')
+            if isinstance(recipient_sector, list): # Handle potential list type from sheets
+                recipient_sector = recipient_sector[0] if recipient_sector else ''
+
+            recipient['sector'] = recipient_sector if recipient_sector else "your industry" # Provide fallback for subject
+
+            # --- DEBUG PRINT --- 
+            print(f"DEBUG: For recipient {recipient.get('email')}, Sector: '{recipient_sector}', OpenAI Key Loaded: {bool(self.openai_api_key)}")
+            # --- END DEBUG PRINT ---
+
+            chatgpt_suggestion = ""
+            if recipient_sector and self.openai_api_key:
+                chatgpt_suggestion = self._get_chatgpt_suggestion(recipient_sector)
             
-            # Send the email using Outlook
+            recipient['sector_specific_ai_idea'] = chatgpt_suggestion
+            
+            full_filled_html = self.template_handler.fill_template(recipient)
+            
+            subject_match = re.search(r'<title>(.*?)</title>', full_filled_html, re.IGNORECASE | re.DOTALL)
+            # Fallback subject if title tag is missing or empty, or if sector was empty
+            default_subject = f"AI Automation Idea for {recipient_sector if recipient_sector else 'Your Business'}"
+            current_subject = default_subject
+            if subject_match:
+                extracted_subject = subject_match.group(1).strip()
+                if extracted_subject and "{sector}" not in extracted_subject: # Check if placeholder was filled
+                    current_subject = extracted_subject
+                elif not recipient_sector: # if sector is empty, title might be "automation in {} idea"
+                     current_subject = "AI Automation Idea"
+
+
+            email_content_match = re.search(r'<body>(.*?)</body>', full_filled_html, re.IGNORECASE | re.DOTALL)
+            current_email_body = full_filled_html 
+            if email_content_match:
+                current_email_body = email_content_match.group(1).strip()
+            else: # If no body tag, maybe it's a fragment, use as is but log.
+                print(f"Warning: <body> tag not found in template for recipient {recipient.get('email')}. Sending full template content.")
+
+
             success = self.outlook_sender.send_email(
                 to_email=recipient['email'],
-                subject=self.email_subject,
-                content_html=email_content
+                subject=current_subject,
+                content_html=current_email_body
             )
             
             return success
