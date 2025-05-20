@@ -1,0 +1,13 @@
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+GOOGLE_REDIRECT_URI=http://localhost:3000/api/auth/callback/google
+GOOGLE_AUTH_URI=https://accounts.google.com/o/oauth2/auth
+GOOGLE_TOKEN_URI=https://oauth2.googleapis.com/token
+GOOGLE_AUTH_PROVIDER_CERT_URL=https://www.googleapis.com/oauth2/v1/certs
+GOOGLE_SHEET_ID=
+GOOGLE_SHEET_RANGE=Sheet1!A:Z
+MS_CLIENT_ID=
+MS_TENANT_ID=
+MS_CLIENT_SECRET=
+MS_USER_EMAIL=
+OPENAI_API_KEY=
