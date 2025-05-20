@@ -35,32 +35,64 @@ pip install -r requirements.txt
 3. Add API permissions:
    - Microsoft Graph > Application permissions > Mail.Send
 4. Grant admin consent for the permissions
-5. Create a client secret and note it down
-6. Note your Application (client) ID and Directory (tenant) ID
+5. Create a client secret and note it down. **This will be your `MS_CLIENT_SECRET`**.
+6. Note your Application (client) ID (**this is `MS_CLIENT_ID`**) and Directory (tenant) ID (**this is `MS_TENANT_ID`**).
 
 ### 4. Environment Configuration
 
-Create a `.env.local` file in the project root with the following variables:
+This project uses environment variables to securely store sensitive information like API keys and credentials.
 
-```
-# Google Sheets API
-GOOGLE_SHEETS_CREDENTIALS_FILE=credentials.json
-GOOGLE_SHEETS_TOKEN_FILE=token.json
-GOOGLE_SHEET_ID=your_sheet_id_here
-GOOGLE_SHEET_RANGE=Sheet1!A1:Z1000
+1.  **Create your local environment file:**
+    Locate the file named `.envexample` in the project root. This file serves as a template.
+    Rename this file to `.env.local`. This `.env.local` file is listed in `.gitignore` and should NOT be committed to your repository.
 
-# Microsoft Graph API (Outlook)
-MS_CLIENT_ID=your_azure_client_id
-MS_TENANT_ID=your_azure_tenant_id
-MS_CLIENT_SECRET=your_azure_client_secret
-MS_USER_EMAIL=your_outlook_email@example.com
+2.  **Populate `.env.local`:**
+    Open the `.env.local` file and fill in the values for each variable.
 
-# App Settings
-DAILY_EMAIL_LIMIT=10
-EMAIL_INTERVAL_MINUTES=2
-EMAIL_SUBJECT=Your Email Subject Here
-STATUS_COLUMN=Status
-```
+    ```
+    # Google Sheets API
+    # GOOGLE_SHEETS_CREDENTIALS_FILE: This should be 'credentials.json'.
+    # Ensure the 'credentials.json' file you downloaded in 'Google Sheets API Setup' (Step 2.6)
+    # is placed directly in the root of your project directory.
+    GOOGLE_SHEETS_CREDENTIALS_FILE=credentials.json
+    # GOOGLE_SHEETS_TOKEN_FILE: This is typically 'token.json' and will be generated automatically
+    # after you run the application for the first time and authenticate with Google.
+    GOOGLE_SHEETS_TOKEN_FILE=token.json
+    # GOOGLE_SHEET_ID: The ID of your Google Sheet. You can find this in the URL of your sheet:
+    # docs.google.com/spreadsheets/d/YOUR_SHEET_ID_IS_HERE/edit
+    GOOGLE_SHEET_ID=your_sheet_id_here
+    # GOOGLE_SHEET_RANGE: The specific sheet and range to read data from.
+    # Example: 'Sheet1!A1:Z1000' means data from cell A1 to Z1000 in 'Sheet1'.
+    GOOGLE_SHEET_RANGE=Sheet1!A1:Z1000
+
+    # Microsoft Graph API (Outlook)
+    # MS_CLIENT_ID: Your Azure Application (client) ID. See 'Microsoft Graph API Setup' (Step 3.6).
+    MS_CLIENT_ID=your_azure_client_id
+    # MS_TENANT_ID: Your Azure Directory (tenant) ID. See 'Microsoft Graph API Setup' (Step 3.6).
+    MS_TENANT_ID=your_azure_tenant_id
+    # MS_CLIENT_SECRET: Your Azure application client secret. See 'Microsoft Graph API Setup' (Step 3.5).
+    MS_CLIENT_SECRET=your_azure_client_secret
+    # MS_USER_EMAIL: The Outlook email address you will be sending emails from.
+    MS_USER_EMAIL=your_outlook_email@example.com
+
+    # App Settings
+    # DAILY_EMAIL_LIMIT: Maximum number of emails to send per day.
+    DAILY_EMAIL_LIMIT=10
+    # EMAIL_INTERVAL_MINUTES: Time in minutes to wait between sending each email.
+    EMAIL_INTERVAL_MINUTES=2
+    # EMAIL_SUBJECT: The subject line for the emails.
+    EMAIL_SUBJECT=Your Email Subject Here
+    # STATUS_COLUMN: The name of the column in your Google Sheet where the sending status will be written.
+    # If this column doesn't exist, the script will attempt to create it.
+    STATUS_COLUMN=Status
+    ```
+
+3.  **`credentials.json` (for Google Sheets API):**
+    As mentioned in the "Google Sheets API Setup" (Step 2.6), after creating your OAuth 2.0 credentials in the Google Cloud Console, you will download a JSON file.
+    -   Rename this file to `credentials.json`.
+    -   Place this `credentials.json` file in the **root directory** of this project.
+    -   This file is crucial for the application to authenticate with the Google Sheets API.
+    -   Ensure this file is also listed in your `.gitignore` to prevent accidental commits. *(Self-correction: I should check if `credentials.json` is already in `.gitignore`)*
 
 ### 5. Google Sheet Preparation
 
